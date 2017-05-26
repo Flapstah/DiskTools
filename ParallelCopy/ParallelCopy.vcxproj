@@ -145,6 +145,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="commandlineoptions.h" />
     <ClInclude Include="jobsystem.h" />
     <ClInclude Include="log.h" />
     <ClInclude Include="stdafx.h" />

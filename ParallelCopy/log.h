@@ -19,9 +19,9 @@ public:
 	};
 
 	CLog(eSeverity level = eS_INFORMATION, const char* name = nullptr)
-		: m_name((name != nullptr) ? name : "anonymous")
-		, m_level(level)
-		, m_file((name != nullptr) ? new std::ofstream(name, std::ios_base::trunc | std::ios_base::out) : nullptr)
+		: m_name{ (name != nullptr) ? name : "anonymous" }
+		, m_level{ level }
+		, m_file{ (name != nullptr) ? new std::ofstream(name, std::ios_base::trunc | std::ios_base::out) : nullptr }
 	{
 	}
 	~CLog()

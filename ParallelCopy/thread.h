@@ -22,17 +22,17 @@ public:
 		{
 			if (SetThreadAffinityMask(m_thread.native_handle(), (DWORD_PTR)affinityMask) == 0)
 			{
-				LOG_VERBOSE("[%s] (const) starting...", GetName())
+				LOG_DEBUG("[%s] (const) starting...", GetName())
 				m_thread = std::thread(function);
 			}
 			else
 			{
-				LOG_VERBOSE("[%s] unable to set affinity of [0x%X]", GetName(), affinityMask);
+				LOG_DEBUG("[%s] unable to set affinity of [0x%X]", GetName(), affinityMask);
 			}
 		}
 		else
 		{
-			LOG_VERBOSE("[%s] already running...", GetName());
+			LOG_DEBUG("[%s] already running...", GetName());
 		}
 	}
 
@@ -43,17 +43,17 @@ public:
 		{
 			if (SetThreadAffinityMask(m_thread.native_handle(), (DWORD_PTR)affinityMask) == 0)
 			{
-				LOG_VERBOSE("[%s] starting...", GetName());
+				LOG_DEBUG("[%s] starting...", GetName());
 				m_thread = std::thread(function);
 			}
 			else
 			{
-				LOG_VERBOSE("[%s] unable to set affinity of [0x%X]", GetName(), affinityMask);
+				LOG_DEBUG("[%s] unable to set affinity of [0x%X]", GetName(), affinityMask);
 			}
 		}
 		else
 		{
-			LOG_VERBOSE("[%s] already running...", GetName());
+			LOG_DEBUG("[%s] already running...", GetName());
 		}
 	}
 
