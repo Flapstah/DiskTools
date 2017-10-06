@@ -3,6 +3,7 @@
 ipch/*
 *.opendb
 *.db
+.vs/*
 **/*.csproj.user
 **/*.vcxproj.user
 **/bin/*
