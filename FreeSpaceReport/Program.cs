@@ -109,6 +109,9 @@ namespace FreeSpaceReport
 
 	class External
 	{
+		[DllImport("Kernel32.dll", CharSet = CharSet.Auto)]
+		internal static extern uint GetLastError();
+
 		[DllImport("Kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
 		[return: MarshalAs(UnmanagedType.Bool)]
 		internal static extern bool GetDiskFreeSpaceEx(string lpDirectoryName,

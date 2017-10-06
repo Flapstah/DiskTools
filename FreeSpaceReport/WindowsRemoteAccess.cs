@@ -57,11 +57,12 @@ namespace FreeSpaceReport
 		const int ERROR_NO_NET_OR_BAD_PATH = 1203;
 		const int ERROR_NO_NETWORK = 1222;
 
-		const int ERROR_BAD_PROFILE = 1206;
 		const int ERROR_CANNOT_OPEN_PROFILE = 1205;
-		const int ERROR_DEVICE_IN_USE = 2404;
+		const int ERROR_BAD_PROFILE = 1206;
+		const int ERROR_SESSION_CREDENTIAL_CONFLICT = 1219;
 		const int ERROR_NOT_CONNECTED = 2250;
 		const int ERROR_OPEN_FILES = 2401;
+		const int ERROR_DEVICE_IN_USE = 2404;
 
 		private struct ErrorClass
 		{
@@ -98,6 +99,7 @@ namespace FreeSpaceReport
 			new ErrorClass(ERROR_EXTENDED_ERROR, "Error: Extended Error"),
 			new ErrorClass(ERROR_NOT_CONNECTED, "Error: Not Connected"),
 			new ErrorClass(ERROR_OPEN_FILES, "Error: Open Files"),
+			new ErrorClass(ERROR_SESSION_CREDENTIAL_CONFLICT, "Error: Credential Conflict"),
 		};
 
 		public static string getErrorForNumber(int errNum)
