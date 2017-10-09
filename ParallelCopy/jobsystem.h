@@ -30,28 +30,25 @@ public:
 		S_SHUTTING_DOWN,
 	};
 
-	// Constructor that will provide one less job worker thread than the maximum number of hardware threads
-	// i.e. leave one hardware thread for the main thread.  These threads will be given unique thread affinity
-	CJobSystem()
-		: m_numThreads{ std::thread::hardware_concurrency() - 1 }
-	{
-		LOG_VERBOSE("[%d] CJobSystem constructed : m_numThreads = %d", std::this_thread::get_id(), m_numThreads);
-		CreateWorkerThreads(false);
-	}
-
-	// Constructor that will provide a pool of job worker threads with 'floating' thread affinity
-	CJobSystem(size_t numThreads)
+	// Constructor that will provide a pool of job worker threads with either unique, or 'floating' thread affinity
+	CJobSystem(size_t numThreads = 0, bool asFloatingPool = true)
 		: m_numThreads{ numThreads }
 	{
+		if (m_numThreads == 0)
+		{
+			// General good practice is 2 software thread per hardware thread; the -1 is for the main thread
+			m_numThreads = (std::thread::hardware_concurrency() * 2) - 1;
+		}
+
 		LOG_VERBOSE("[%d] CJobSystem constructed : m_numThreads = %d", std::this_thread::get_id(), m_numThreads);
-		CreateWorkerThreads(true);
+		CreateWorkerThreads(asFloatingPool);
 	}
 
 	// Constructor that will create threads from the supplied thread config file
 	CJobSystem(const std::string threadConfigFile)
 		: m_numThreads{ 0 }
 	{
-		// TODO: Read config file then create threads
+		// TODO: Read config file then create threads; N.B. thread affinity
 		LOG_VERBOSE("[%d] CJobSystem constructed : m_numThreads = %d", std::this_thread::get_id(), m_numThreads);
 	}
 
@@ -104,7 +101,9 @@ public:
 	}
 
 private:
-	void CreateWorkerThreads(bool asGenericThreadPool = true)
+	// 'Floating' affinity means threads will be balanced on the cores according to core load
+	// 'Unique' affinity locks threads to cores in a round-robin way.
+	void CreateWorkerThreads(bool asFloatingPool)
 	{
 		m_workerThreads.resize(m_numThreads);
 		size_t affinityMax = std::thread::hardware_concurrency();
@@ -113,7 +112,7 @@ private:
 		{
 			sprintf_s(nameBuffer, sizeof(nameBuffer), "WorkerThread%zd", index);
 			std::string name(nameBuffer);
-			m_workerThreads[index] = (asGenericThreadPool) ? new CWorkerThread(name, &m_jobQueue) : new CWorkerThread(name, &m_jobQueue, 1LL << (index % affinityMax));
+			m_workerThreads[index] = (asFloatingPool) ? new CWorkerThread(name, &m_jobQueue) : new CWorkerThread(name, &m_jobQueue, 1LL << (index % affinityMax));
 			LOG_DEBUG("[%d] CJobSystem::CreateWorkerThreads() created thread #%d [%d]", std::this_thread::get_id(), index, m_workerThreads[index]->GetId());
 		}
 	}
