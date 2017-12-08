@@ -53,28 +53,12 @@ int main(const int argc, const char* argv[])
 
 	struct SOptions
 	{
-		const char* m_source = nullptr;
-		const char* m_destination = nullptr;
 		const char* m_fileList = nullptr;
-		int m_numThreads = std::thread::hardware_concurrency() - 1;
+		int m_numThreads = 0; // default number of threads
 	} options;
 
 	CCommandLineOptions opts(argc, argv, [&](int argc, const char* argv[], int& index) -> bool {
-		if (options.m_source == nullptr)
-		{
-			options.m_source = argv[index];
-			LOG_DEBUG("Source [%s]", argv[index]);
-		}
-		else
-		{
-			options.m_destination = argv[index];
-			LOG_DEBUG("Destination [%s]", argv[index]);
-		}
-		return true;
-	});
-	opts.AddOption("files", 'f', [&](int argc, const char* argv[], int& index) -> bool {
-		options.m_fileList = argv[++index];
-		LOG_DEBUG("Files option [%s]", argv[index]);
+		options.m_fileList = argv[index];
 		return true;
 	});
 	opts.AddOption("threads", 't', [&](int argc, const char* argv[], int& index) -> bool {
@@ -86,23 +70,29 @@ int main(const int argc, const char* argv[])
 	if (opts.Parse())
 	{
 		// TODO: sanity check options after command line parsing
-		LOG_INFORMATION("Copying from [%s] to [%s], directed by [%s] and using [%d] threads", options.m_source, options.m_destination, options.m_fileList, options.m_numThreads);
+		LOG_INFORMATION("Copying files in [%s] and using [%d] threads", options.m_fileList, options.m_numThreads);
 		CJobSystem jobSystem(options.m_numThreads);
 
 		std::ifstream fileList(options.m_fileList);
-		std::string file;
-		while (std::getline(fileList, file))
+		std::string line;
+		size_t lineNumber = 1;
+		while (std::getline(fileList, line))
 		{
-			std::string source = options.m_source;
-			source += "\\";
-			source += file;
-			std::string destination = options.m_destination;
-			destination += "\\";
-			destination += file;
+			size_t sep = line.find('|');
+			if (sep == std::string::npos)
+			{
+				LOG_INFORMATION("Malformed line in [%s](%i) (should be 'src|dst' format)", options.m_fileList, lineNumber);
+				break;
+			}
+
+			std::string source = line.substr(0, sep);
+			std::string destination = line.substr(sep + 1);
 
 			jobSystem.AddJob([source, destination]() {
 				copyFile(source, destination);
 			});
+
+			++lineNumber;
 		}
 
 		while (jobSystem.JobCount())
