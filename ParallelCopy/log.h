@@ -53,7 +53,7 @@ public:
 			{
 				buffer = format_string(buffer.c_str(), args...);
 			}
-			out << buffer.c_str();
+			out << buffer.c_str() << std::flush;
 			if (m_file != nullptr)
 				*m_file << buffer.c_str();
 		}
