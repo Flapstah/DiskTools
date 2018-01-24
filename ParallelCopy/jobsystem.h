@@ -167,18 +167,10 @@ private:
 	class CWorkerThread : public CThread
 	{
 	public:
-		enum EState : char
-		{
-			S_IDLE,
-			S_RUNNING,
-			S_TERMINATING,
-			S_TERMINATE,
-		};
-
 		// Worker thread with 'floating' core affinity
 		CWorkerThread(std::string& name, CJobQueue* queue)
 			: CThread{ name }
-			, m_state{ S_RUNNING }
+			, m_requestTerminate{ false }
 			, m_queue{ queue }
 		{
 			auto lambda = [this]() { this->Main(); };
@@ -188,7 +180,7 @@ private:
 		// Worker thread with specified core affinity
 		CWorkerThread(std::string& name, CJobQueue* queue, uint64_t coreAffinity)
 			: CThread{ name }
-			, m_state{ S_RUNNING }
+			, m_requestTerminate{ false }
 			, m_queue{ queue }
 		{
 			auto lambda = [this]() { this->Main(); };
@@ -200,48 +192,24 @@ private:
 			RequestTerminate();
 		}
 
-		void RequestTerminate()
+		inline void RequestTerminate()
 		{
-			LOG_VERBOSE("[%d] CWorkerThread::RequestTerminate() [%d]", std::this_thread::get_id(), GetId());
-			if (GetState() == S_RUNNING)
+			if (!m_requestTerminate)
 			{
-				SetState(S_TERMINATE);
+				LOG_VERBOSE("[%d] CWorkerThread::RequestTerminate() [%d]", std::this_thread::get_id(), GetId());
+				m_requestTerminate = true;
 				Join();
 			}
 		}
 
 	private:
-		void SetState(EState state)
-		{
-			std::lock_guard<std::mutex> lock(m_mutex);
-			LOG_VERBOSE("[%d] CWorkerThread::SetState() [%d] %s -> %s", std::this_thread::get_id(), GetId(), GetStateString(m_state), GetStateString(state));
-			m_state = state;
-		}
-
-#define CASE_ENUM_TO_STRING(_enum) case _enum : return #_enum
-		inline const char* GetStateString(EState state)
-		{
-			switch (state)
-			{
-				CASE_ENUM_TO_STRING(S_IDLE);
-				CASE_ENUM_TO_STRING(S_RUNNING);
-				CASE_ENUM_TO_STRING(S_TERMINATING);
-				CASE_ENUM_TO_STRING(S_TERMINATE);
-			default:
-				return "<UNKNOWN>";
-			}
-		}
-		inline const EState GetState()
-		{
-			return m_state;
-		}
 
 		//TODO: worker threads need to check for jobs for the correct affinity (need to think about this)
 		void Main()
 		{
 			LOG_VERBOSE("[%d] CWorkerThread::Main() starting", std::this_thread::get_id());
 
-			while (GetState() == S_RUNNING)
+			while (!m_requestTerminate)
 			{
 				std::function<void()> function(m_queue->pop());
 				if (function != nullptr)
@@ -257,13 +225,10 @@ private:
 				}
 			}
 
-			SetState(S_TERMINATING);
 			LOG_DEBUG("[%d] CWorkerThread::Main() shutting down with %d outstanding jobs in queue", std::this_thread::get_id(), m_queue->size());
-
-			SetState(S_IDLE);
 		}
 
-		EState m_state;
+		volatile std::atomic_bool m_requestTerminate;
 		std::mutex m_mutex;
 		CJobQueue* m_queue;
 	};
