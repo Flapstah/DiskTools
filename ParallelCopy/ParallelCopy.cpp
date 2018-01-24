@@ -14,21 +14,26 @@ void copyFile(const std::string& source, const std::string& destination)
 	size_t length = MultiByteToWideChar(CP_UTF8, 0, destination.c_str(), (int)destination.length(), nullptr, 0);
 	std::wstring path(length + 1, 0);
 	MultiByteToWideChar(CP_UTF8, 0, destination.c_str(), (int)destination.length(), &path[0], (int)path.length());
-	path[path.find_last_of(L'\\')] = 0; // trim file from path
+	path[path.find_last_of(L"/\\")] = 0; // trim file from path
 
 	switch (SHCreateDirectoryEx(NULL, path.c_str(), nullptr))
 	{
 	case ERROR_ALREADY_EXISTS:
 	case ERROR_FILE_EXISTS:
 	case ERROR_SUCCESS:
-		if (CopyFileExA(source.c_str(), destination.c_str(), nullptr, nullptr, nullptr, 0))
+		if (!CopyFileExA(source.c_str(), destination.c_str(), nullptr, nullptr, nullptr, 0))
 		{
-			LOG_INFORMATION("Copied [%s]", destination.c_str());
+			LOG_ERROR("Failed to copy [%s] to [%s]: GetLastError() 0x%08X", source.c_str(), destination.c_str(), GetLastError());
 		}
-		else
-		{
-			LOG_INFORMATION("Failed to copy [%s] to [%s]: 0x%08X", source.c_str(), destination.c_str(), GetLastError());
-		}
+		break;
+	case ERROR_BAD_PATHNAME:
+		LOG_ERROR("Bad pathname [%s]", path.c_str());
+		break;
+	case ERROR_FILENAME_EXCED_RANGE:
+		LOG_ERROR("Pathname [%s] too long", path.c_str());
+		break;
+	case ERROR_CANCELLED:
+		LOG_WARNING("User cancelled creating directory [%s]", path.c_str());
 		break;
 	default:
 		LOG_INFORMATION("Failed to create parent directory for [%s]", destination.c_str());
