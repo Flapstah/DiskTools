@@ -36,7 +36,7 @@ public:
 	{
 		if (m_numThreads == 0)
 		{
-			// General good practice is 2 software thread per hardware thread; the -1 is for the main thread
+			// General good practice is 2 software threads per hardware thread; the -1 is because these are in addition to the main thread
 			m_numThreads = (std::thread::hardware_concurrency() * 2) - 1;
 		}
 
@@ -77,14 +77,19 @@ public:
 	}
 
 	// TODO: create AddJob() with thread affinity
-	void AddJob(std::function<void()>&& function)
+	inline void AddJob(std::function<void()>&& function)
 	{
 		m_jobQueue.push(std::forward<std::function<void()>>(function));
 	}
 
-	size_t JobCount()
+	inline size_t JobCount()
 	{
 		return m_jobQueue.size();
+	}
+
+	inline size_t JobsRunning()
+	{
+		return m_jobQueue.running();
 	}
 
 	void Shutdown()
@@ -120,9 +125,28 @@ private:
 	class CJobQueue
 	{
 	public:
-		size_t size()
+		// Number of jobs in the queue
+		inline size_t size()
 		{
 			return m_queue.size();
+		}
+
+		// Number of jobs currently running on worker threads
+		inline size_t running()
+		{
+			return m_running;
+		}
+
+		// Worker thread calls this before calling the job functor
+		inline void jobStarted()
+		{
+			++m_running;
+		}
+
+		// Worker thread calls this after returning from the job functor
+		inline void jobFinished()
+		{
+			--m_running;
 		}
 
 		void push(std::function<void()>&& function, uint64_t&& affinityMask = std::numeric_limits<uint64_t>::max())
@@ -160,6 +184,7 @@ private:
 			std::function<void()> m_function;
 		};
 
+		volatile std::atomic_size_t m_running;
 		std::mutex m_mutex;
 		std::deque<SJobInfo> m_queue;
 	};
@@ -203,7 +228,6 @@ private:
 		}
 
 	private:
-
 		//TODO: worker threads need to check for jobs for the correct affinity (need to think about this)
 		void Main()
 		{
@@ -215,7 +239,9 @@ private:
 				if (function != nullptr)
 				{
 					LOG_VERBOSE("[%d] CWorkerThread::Main() executing function", std::this_thread::get_id());
+					m_queue->jobStarted();
 					function();
+					m_queue->jobFinished();
 				}
 				else
 				{
