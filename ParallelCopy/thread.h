@@ -57,7 +57,7 @@ public:
 		}
 	}
 
-	void Join()
+	inline void Join()
 	{
 		if (m_thread.joinable())
 		{
@@ -65,12 +65,12 @@ public:
 		}
 	}
 
-	const char* GetName()
+	inline const char* GetName()
 	{
 		return m_name.c_str();
 	}
 
-	std::thread::id GetId()
+	inline std::thread::id GetId()
 	{
 		return m_thread.get_id();
 	}
