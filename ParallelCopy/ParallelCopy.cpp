@@ -36,6 +36,14 @@ void copyFile(const std::string& source, const std::string& destination)
 	}
 }
 
+void Help()
+{
+	LOG_INFORMATION("ParallelCopy.exe [-t <threads>] [-h] <manifest>");
+	LOG_INFORMATION("--threads  -t  number of threads to use (default is (2*<cores>)-1)");
+	LOG_INFORMATION("--help     -h  help");
+	LOG_INFORMATION("<manifest>     a pipe seperated file list in the form src|dst, 1 entry per line");
+}
+
 int main(const int argc, const char* argv[])
 {
 #if defined(_DEBUG)
@@ -65,6 +73,10 @@ int main(const int argc, const char* argv[])
 		options.m_numThreads = atoi(argv[++index]);
 		LOG_DEBUG("Threads [%s] => (%d)", argv[index], options.m_numThreads);
 		return true;
+	});
+	opts.AddOption("help", 'h', [&](int argc, const char* argv[], int& index) -> bool {
+		Help();
+		return false;
 	});
 
 	if (opts.Parse())
