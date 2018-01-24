@@ -3,11 +3,16 @@
 
 #include "stdafx.h"
 
+#include <atomic>
+#include <tuple>
+
 #include "log.h"
 CLog g_log(CLog::eS_DEBUG, "output.log");
 
 #include "commandlineoptions.h"
 #include "jobsystem.h"
+
+volatile std::atomic_size_t failedToCopy = 0;
 
 void copyFile(const std::string& source, const std::string& destination)
 {
@@ -24,19 +29,24 @@ void copyFile(const std::string& source, const std::string& destination)
 		if (!CopyFileExA(source.c_str(), destination.c_str(), nullptr, nullptr, nullptr, 0))
 		{
 			LOG_ERROR("Failed to copy [%s] to [%s]: GetLastError() 0x%08X", source.c_str(), destination.c_str(), GetLastError());
+			++failedToCopy;
 		}
 		break;
 	case ERROR_BAD_PATHNAME:
 		LOG_ERROR("Bad pathname [%s]", path.c_str());
+		++failedToCopy;
 		break;
 	case ERROR_FILENAME_EXCED_RANGE:
 		LOG_ERROR("Pathname [%s] too long", path.c_str());
+		++failedToCopy;
 		break;
 	case ERROR_CANCELLED:
 		LOG_WARNING("User cancelled creating directory [%s]", path.c_str());
+		++failedToCopy;
 		break;
 	default:
 		LOG_INFORMATION("Failed to create parent directory for [%s]", destination.c_str());
+		++failedToCopy;
 		break;
 	}
 }
@@ -86,42 +96,72 @@ int main(const int argc, const char* argv[])
 
 	if (opts.Parse())
 	{
-		// TODO: sanity check options after command line parsing
-		LOG_INFORMATION("Copying files in [%s] and using [%d] threads", options.m_fileList, options.m_numThreads);
-		CJobSystem jobSystem(options.m_numThreads);
-
-		std::ifstream fileList(options.m_fileList);
-		std::string line;
-		size_t lineNumber = 1;
-		while (std::getline(fileList, line))
+		if (options.m_fileList != nullptr)
 		{
-			size_t sep = line.find('|');
-			if (sep == std::string::npos)
+			LOG_INFORMATION("Copying files in [%s] and using [%d] threads", options.m_fileList, options.m_numThreads);
+			CJobSystem jobSystem(options.m_numThreads);
+
+			std::list<std::tuple<const std::string, const std::string>> files;
+			std::ifstream fileList(options.m_fileList);
+			std::string line;
+			size_t count = 0;
+			while (std::getline(fileList, line))
 			{
-				LOG_INFORMATION("Malformed line in [%s](%i) (should be 'src|dst' format)", options.m_fileList, lineNumber);
-				break;
+				size_t sep = line.find('|');
+				if (sep == std::string::npos)
+				{
+					LOG_ERROR("Malformed line in [%s](%i) (should be 'src|dst' format)", options.m_fileList, count + 1);
+					break;
+				}
+
+				std::string source = line.substr(0, sep);
+				std::string destination = line.substr(sep + 1);
+				files.push_back(std::make_tuple(source, destination));
+				++count;
 			}
 
-			std::string source = line.substr(0, sep);
-			std::string destination = line.substr(sep + 1);
+			for (const std::tuple<const std::string, const std::string>& copyOperation : files)
+			{
+				const std::string source = std::get<0>(copyOperation);
+				const std::string destination = std::get<1>(copyOperation);
+				//LOG_INFORMATION("Copying [%s] to [%s]...", source.c_str(), destination.c_str());
 
-			jobSystem.AddJob([source, destination]() {
-				copyFile(source, destination);
-			});
+				jobSystem.AddJob([source, destination]() {
+					copyFile(source, destination);
+				});
+			}
 
-			++lineNumber;
+			size_t remaining = 0;
+			size_t running = 0;
+			DWORD sleepInterval = 50; // sleep interval of 50ms
+			DWORD logInterval = 2000 / sleepInterval; // log interval of 2s
+			DWORD logCounter = 0;
+			bool working = true;
+			while (working)
+			{
+				remaining = jobSystem.JobCount();
+				running = jobSystem.JobsRunning();
+				working = remaining || running;
+				if (++logCounter == logInterval)
+				{
+					logCounter = 0;
+					LOG_INFORMATION("[%d] threads running; [%d] files remaining...", running, remaining);
+				}
+
+				jobSystem.Update();
+				Sleep(sleepInterval);
+			}
+
+			// Have to take local copies of atomics before passing to functions (can't access copy constructor)
+			size_t failed = failedToCopy;
+			LOG_INFORMATION("%d files copied, %d failed", count - failed, failed);
 		}
-
-		while (jobSystem.JobCount())
+		else
 		{
-			jobSystem.Update();
-			Sleep(50);
+			Help();
 		}
 	}
-	else
-	{
-		LOG_INFORMATION("Muppet!");
-	}
+
 	return 0;
 }
 
