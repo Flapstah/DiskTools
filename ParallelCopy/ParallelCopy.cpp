@@ -13,6 +13,8 @@ CLog g_log(CLog::eS_DEBUG, "output.log");
 #include "jobsystem.h"
 
 volatile std::atomic_size_t failedToCopy = 0;
+const unsigned int MAX_RETRIES = 10;
+const DWORD RETRY_DELAY = 10000; // 10 second retry delay
 
 void copyFile(const std::string& source, const std::string& destination)
 {
@@ -21,16 +23,38 @@ void copyFile(const std::string& source, const std::string& destination)
 	MultiByteToWideChar(CP_UTF8, 0, destination.c_str(), (int)destination.length(), &path[0], (int)path.length());
 	path[path.find_last_of(L"/\\")] = 0; // trim file from path
 
+	bool copied = false;
+	DWORD retries = MAX_RETRIES;
+
 	switch (SHCreateDirectoryEx(NULL, path.c_str(), nullptr))
 	{
 	case ERROR_ALREADY_EXISTS:
 	case ERROR_FILE_EXISTS:
 	case ERROR_SUCCESS:
-		if (!CopyFileExA(source.c_str(), destination.c_str(), nullptr, nullptr, nullptr, 0))
+		while (!copied && retries)
 		{
-			LOG_ERROR("Failed to copy [%s] to [%s]: GetLastError() 0x%08X", source.c_str(), destination.c_str(), GetLastError());
+			if (CopyFileExA(source.c_str(), destination.c_str(), nullptr, nullptr, nullptr, 0))
+			{
+				if (retries != MAX_RETRIES)
+				{
+					LOG_INFORMATION("Copied [%s] to [%s] after [%s] retries", source.c_str(), destination.c_str(), MAX_RETRIES - retries);
+				}
+				copied = true;
+			}
+			else
+			{
+				LOG_ERROR("Failed to copy [%s] to [%s]; [%d] retries remaining: GetLastError() 0x%08X; sleeping before retry", source.c_str(), destination.c_str(), retries, GetLastError());
+				--retries;
+				Sleep(RETRY_DELAY);
+			}
+		}
+
+		if (!copied)
+		{
+			LOG_ERROR("Failed to copy [%s] to [%s] after [%s] retries: GetLastError() 0x%08X", source.c_str(), destination.c_str(), MAX_RETRIES, GetLastError());
 			++failedToCopy;
 		}
+
 		break;
 	case ERROR_BAD_PATHNAME:
 		LOG_ERROR("Bad pathname [%s]", path.c_str());
