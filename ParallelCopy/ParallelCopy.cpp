@@ -33,11 +33,11 @@ void copyFile(const std::string& source, const std::string& destination)
 	case ERROR_SUCCESS:
 		while (!copied && retries)
 		{
-			if (CopyFileExA(source.c_str(), destination.c_str(), nullptr, nullptr, nullptr, 0))
+			if (CopyFileExA(source.c_str(), destination.c_str(), nullptr, nullptr, nullptr, COPY_FILE_NO_BUFFERING))
 			{
 				if (retries != MAX_RETRIES)
 				{
-					LOG_INFORMATION("Copied [%s] to [%s] after [%s] retries", source.c_str(), destination.c_str(), MAX_RETRIES - retries);
+					LOG_INFORMATION("Copied [%s] to [%s] after [%d] retries", source.c_str(), destination.c_str(), MAX_RETRIES - retries);
 				}
 				copied = true;
 			}
@@ -51,7 +51,7 @@ void copyFile(const std::string& source, const std::string& destination)
 
 		if (!copied)
 		{
-			LOG_ERROR("Failed to copy [%s] to [%s] after [%s] retries: GetLastError() 0x%08X", source.c_str(), destination.c_str(), MAX_RETRIES, GetLastError());
+			LOG_ERROR("Failed to copy [%s] to [%s] after [%d] retries: GetLastError() 0x%08X", source.c_str(), destination.c_str(), MAX_RETRIES, GetLastError());
 			++failedToCopy;
 		}
 
