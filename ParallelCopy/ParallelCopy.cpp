@@ -33,7 +33,7 @@ void copyFile(const std::string& source, const std::string& destination)
 	case ERROR_SUCCESS:
 		while (!copied && retries)
 		{
-			if (CopyFileExA(source.c_str(), destination.c_str(), nullptr, nullptr, nullptr, COPY_FILE_NO_BUFFERING))
+			if (CopyFileExA(source.c_str(), destination.c_str(), nullptr, nullptr, nullptr, 0/*COPY_FILE_NO_BUFFERING*/))
 			{
 				if (retries != MAX_RETRIES)
 				{
