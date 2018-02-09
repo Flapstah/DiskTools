@@ -13,8 +13,8 @@ CLog g_log(CLog::eS_DEBUG, "output.log");
 #include "jobsystem.h"
 
 volatile std::atomic_size_t failedToCopy = 0;
-const unsigned int MAX_RETRIES = 10;
-const DWORD RETRY_DELAY = 10000; // 10 second retry delay
+volatile unsigned int MAX_RETRIES = 10;
+volatile DWORD RETRY_DELAY = 10000; // 10 second retry delay
 
 void copyFile(const std::string& source, const std::string& destination)
 {
@@ -43,7 +43,7 @@ void copyFile(const std::string& source, const std::string& destination)
 			}
 			else
 			{
-				LOG_ERROR("Failed to copy [%s] to [%s]; [%d] retries remaining: GetLastError() 0x%08X; sleeping before retry", source.c_str(), destination.c_str(), retries, GetLastError());
+				//LOG_ERROR("Failed to copy [%s] to [%s]; [%d] retries remaining: GetLastError() 0x%08X; sleeping before retry", source.c_str(), destination.c_str(), retries, GetLastError());
 				--retries;
 				Sleep(RETRY_DELAY);
 			}
@@ -79,6 +79,8 @@ void Help()
 {
 	LOG_INFORMATION("ParallelCopy.exe [-t <threads>] [-h] <manifest>");
 	LOG_INFORMATION("--threads  -t  number of threads to use (default is (2*<cores>)-1)");
+	LOG_INFORMATION("--max-retries  -r  maximum number of retries (default 10)");
+	LOG_INFORMATION("--retry-delay  -d  delay (in ms) between retries (default 10000)");
 	LOG_INFORMATION("--help     -h  help");
 	LOG_INFORMATION("<manifest>     a pipe seperated file list in the form src|dst, 1 entry per line");
 }
@@ -113,6 +115,16 @@ int main(const int argc, const char* argv[])
 		LOG_DEBUG("Threads [%s] => (%d)", argv[index], options.m_numThreads);
 		return true;
 	});
+	opts.AddOption("max-retries", 'r', [&](int argc, const char* argv[], int& index) -> bool {
+		MAX_RETRIES = atoi(argv[++index]);
+		LOG_DEBUG("Max retries [%s] => (%d)", argv[index], MAX_RETRIES);
+		return true;
+	});
+	opts.AddOption("retry-delay", 'd', [&](int argc, const char* argv[], int& index) -> bool {
+		RETRY_DELAY = atoi(argv[++index]);
+		LOG_DEBUG("Retry delay [%sms] => (%dms)", argv[index], RETRY_DELAY);
+		return true;
+	});
 	opts.AddOption("help", 'h', [&](int argc, const char* argv[], int& index) -> bool {
 		Help();
 		return false;
@@ -122,7 +134,7 @@ int main(const int argc, const char* argv[])
 	{
 		if (options.m_fileList != nullptr)
 		{
-			LOG_INFORMATION("Copying files in [%s] and using [%d] threads", options.m_fileList, options.m_numThreads);
+			LOG_INFORMATION("Copying files in [%s] and using [%d] threads (max retries [%d], retry delay [%dms])", options.m_fileList, options.m_numThreads, MAX_RETRIES, RETRY_DELAY);
 			CJobSystem jobSystem(options.m_numThreads);
 
 			std::list<std::tuple<const std::string, const std::string>> files;

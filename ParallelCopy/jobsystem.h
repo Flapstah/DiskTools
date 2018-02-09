@@ -15,6 +15,7 @@
 
 #define THREAD_ID "[" << std::this_thread::get_id() << "] "
 
+volatile std::atomic<uint64_t> JOBID = 0;
 //
 // TODO: for a thread worker pool with floating affinity, or a round-robin affinity pool, specifying thread affinity for a job is meaningless.
 // If we're using a config file for threads with specific functions, then they should probably have their own job queues
@@ -153,7 +154,7 @@ private:
 		{
 			std::lock_guard<std::mutex> lock(m_mutex);
 			LOG_VERBOSE("[%d] CJobQueue::push() Adding job to jobqueue", std::this_thread::get_id());
-			m_queue.push_back(SJobInfo(std::forward<std::function<void()>>(function), std::forward<uint64_t>(affinityMask)));
+			m_queue.push_back(SJobInfo(std::forward<std::function<void()>>(function), std::forward<uint64_t>(affinityMask), std::forward<uint64_t>(JOBID++)));
 		}
 
 		// TODO: pop needs to consider job thread affinity
@@ -164,7 +165,9 @@ private:
 			{
 				LOG_VERBOSE("[%d] CJobQueue::pop() Removing job from jobqueue", std::this_thread::get_id());
 				std::function<void()> outFunction(std::move(m_queue.front().m_function));
+				uint64_t jobID(std::move(m_queue.front().m_jobID));
 				m_queue.pop_front();
+				LOG_VERBOSE("[%d] CJobQueue::pop() Removed job [%d] from jobqueue", std::this_thread::get_id(), jobID);
 				return outFunction;
 			}
 			LOG_VERBOSE("[%d] CJobQueue::pop() Jobqueue empty", std::this_thread::get_id());
@@ -174,13 +177,15 @@ private:
 	private:
 		struct SJobInfo
 		{
-			SJobInfo(std::function<void()>&& function, uint64_t&& affinityMask)
+			SJobInfo(std::function<void()>&& function, uint64_t&& affinityMask, uint64_t&& jobID)
 				: m_affinityMask{ std::forward<uint64_t>(affinityMask) }
+				, m_jobID{ jobID }
 				, m_function{ std::forward<std::function<void()>>(function) }
 			{
 			}
 
 			uint64_t m_affinityMask;
+			uint64_t m_jobID;
 			std::function<void()> m_function;
 		};
 
