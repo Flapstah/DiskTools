@@ -93,6 +93,11 @@ public:
 		return m_jobQueue.running();
 	}
 
+	inline size_t NumThreads()
+	{
+		return m_numThreads;
+	}
+
 	void Shutdown()
 	{
 		LOG_VERBOSE("[%d] CJobSystem::Shutdown()", std::this_thread::get_id());
