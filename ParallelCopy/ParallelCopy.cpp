@@ -134,8 +134,8 @@ int main(const int argc, const char* argv[])
 	{
 		if (options.m_fileList != nullptr)
 		{
-			LOG_INFORMATION("Copying files in [%s] and using [%d] threads (max retries [%d], retry delay [%dms])", options.m_fileList, options.m_numThreads, MAX_RETRIES, RETRY_DELAY);
 			CJobSystem jobSystem(options.m_numThreads);
+			LOG_INFORMATION("Copying files in [%s] and using [%d] threads (max retries [%d], retry delay [%dms])", options.m_fileList, jobSystem.NumThreads(), MAX_RETRIES, RETRY_DELAY);
 
 			std::list<std::tuple<const std::string, const std::string>> files;
 			std::ifstream fileList(options.m_fileList);
