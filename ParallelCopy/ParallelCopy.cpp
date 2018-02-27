@@ -172,12 +172,10 @@ int main(const int argc, const char* argv[])
 			DWORD sleepInterval = 50; // sleep interval of 50ms
 			DWORD logInterval = 2000 / sleepInterval; // log interval of 2s
 			DWORD logCounter = 0;
-			bool working = true;
-			while (working)
+		do
 			{
 				remaining = jobSystem.JobCount();
 				running = jobSystem.JobsRunning();
-				working = remaining || running;
 				if (++logCounter == logInterval)
 				{
 					logCounter = 0;
@@ -186,7 +184,7 @@ int main(const int argc, const char* argv[])
 
 				jobSystem.Update();
 				Sleep(sleepInterval);
-			}
+		} while (remaining || running);
 
 			// Have to take local copies of atomics before passing to functions (can't access copy constructor)
 			size_t failed = failedToCopy;
