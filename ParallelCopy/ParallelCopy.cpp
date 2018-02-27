@@ -12,8 +12,8 @@ CLog g_log(CLog::eS_DEBUG, "output.log");
 #include "commandlineoptions.h"
 #include "jobsystem.h"
 
-volatile std::atomic_size_t counter = 0;
-volatile std::atomic_size_t blocked = 0;
+std::atomic_size_t counter = 0;
+std::atomic_size_t blocked = 0;
 const size_t cas_iterations = 10000;
 
 void cas_test()
